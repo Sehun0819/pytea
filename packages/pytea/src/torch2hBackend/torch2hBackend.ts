@@ -10,30 +10,9 @@ import { List } from 'immutable';
 
 import { ConsoleInterface } from 'pyright-internal/common/console';
 
-import { sanitizeAddrSet, SymOpUtils } from '../backend/backUtils';
-import * as BackUtils from '../backend/backUtils';
+//import * as BackUtils from '../backend/backUtils';
 import { Context, ContextSet, ContextSetImpl, CtxExpr, CtxStmt } from '../backend/context';
 import { simplifyNum } from '../backend/expUtils';
-import { ShEnv } from '../backend/sharpEnvironments';
-import {
-    CodeSource,
-    ShContFlag,
-    ShValue,
-    SVAddr,
-    SVBool,
-    SVError,
-    SVErrorLevel,
-    SVFloat,
-    SVFunc,
-    SVInt,
-    SVNone,
-    SVNotImpl,
-    SVObject,
-    SVString,
-    SVType,
-    svTypeToString,
-    SVUndef,
-} from '../backend/sharpValues';
 import { ExpNum, ExpString, NumBopType, SymExp } from '../backend/symExpressions';
 import {
     LibCallType,
@@ -68,6 +47,7 @@ import {
 } from '../frontend/torchStatements';
 import { BuiltinsLCImpl } from '../pylibImplements/builtins';
 import { evalLibCall } from '../pylibImplements/evaluator';
+import { sanitizeAddr } from './backUtils';
 import {
     HConstTensor,
     HEBopType,
@@ -82,9 +62,120 @@ import {
     HVarTensor,
     HVarTensorType,
 } from './hExpression';
+import { ShEnv, ShHeap } from './sharpEnvironments';
+import {
+    CodeSource,
+    ShContFlag,
+    ShValue,
+    SVAddr,
+    SVBool,
+    SVError,
+    SVErrorLevel,
+    SVFloat,
+    SVFunc,
+    SVInt,
+    SVNone,
+    SVNotImpl,
+    SVObject,
+    SVString,
+    SVType,
+    svTypeToString,
+    SVUndef,
+} from './sharpValues';
 
 export namespace Translator {
-    export function runEmpty(expr: HExpr): ShValue;
+    export function run(env: ShEnv, heap: ShHeap, stmt: ThStmt): [ShHeap, ShValue | ShContFlag] {
+        switch (stmt.stype) {
+            case TSType.Pass:
+                return _runPass(env, heap, stmt);
+            case TSType.Expr:
+                return _runExpr(env, heap, stmt);
+            case TSType.Seq:
+                return _runSeq(env, heap, stmt);
+            case TSType.Assign:
+                return _runAssign(env, heap, stmt);
+            case TSType.If:
+                return _runIf(env, heap, stmt);
+            case TSType.ForIn:
+                return _runForIn(env, heap, stmt);
+            case TSType.Return:
+                return _runReturn(env, heap, stmt);
+            case TSType.Continue:
+                return _runContinue(env, heap, stmt);
+            case TSType.Break:
+                return _runBreak(env, heap, stmt);
+            case TSType.Let:
+                return _runLet(env, heap, stmt);
+            case TSType.FunDef:
+                return _runFunDef(env, heap, stmt);
+        }
+    }
+
+    export function evaluate(env: ShEnv, heap: ShHeap, expr: ThExpr): [ShHeap, ShValue] {
+        switch (expr.etype) {
+            case TEType.Const: {
+                const [newHeap, retVal] = _evalConst(env, heap, expr);
+                return [newHeap, sanitizeAddr(newHeap, retVal)];
+            }
+            case TEType.Object: {
+                const [newHeap, retVal] = _evalObject(env, heap, expr);
+                return [newHeap, sanitizeAddr(newHeap, retVal)];
+            }
+            case TEType.Tuple: {
+                const [newHeap, retVal] = _evalTuple(env, heap, expr);
+                return [newHeap, sanitizeAddr(newHeap, retVal)];
+            }
+            case TEType.Call: {
+                const [newHeap, retVal] = _evalCall(env, heap, expr);
+                return [newHeap, sanitizeAddr(newHeap, retVal)];
+            }
+            case TEType.LibCall: {
+                const [newHeap, retVal] = _evalLibCall(env, heap, expr);
+                return [newHeap, sanitizeAddr(newHeap, retVal)];
+            }
+            case TEType.BinOp: {
+                const [newHeap, retVal] = _evalBinOp(env, heap, expr);
+                return [newHeap, sanitizeAddr(newHeap, retVal)];
+            }
+            case TEType.UnaryOp: {
+                const [newHeap, retVal] = _evalUnaryOp(env, heap, expr);
+                return [newHeap, sanitizeAddr(newHeap, retVal)];
+            }
+            case TEType.Name: {
+                const [newHeap, retVal] = _evalName(env, heap, expr);
+                return [newHeap, sanitizeAddr(newHeap, retVal)];
+            }
+            case TEType.Attr: {
+                const [newHeap, retVal] = _evalAttr(env, heap, expr);
+                return [newHeap, sanitizeAddr(newHeap, retVal)];
+            }
+            case TEType.Subscr: {
+                const [newHeap, retVal] = _evalSubscr(env, heap, expr);
+                return [newHeap, sanitizeAddr(newHeap, retVal)];
+            }
+        }
+    }
+    export function _runPass(env: ShEnv, heap: ShHeap, stmt: ThStmt): [ShHeap, ShValue | ShContFlag] {}
+    export function _runExpr(env: ShEnv, heap: ShHeap, stmt: ThStmt): [ShHeap, ShValue | ShContFlag] {}
+    export function _runSeq(env: ShEnv, heap: ShHeap, stmt: ThStmt): [ShHeap, ShValue | ShContFlag] {}
+    export function _runAssign(env: ShEnv, heap: ShHeap, stmt: ThStmt): [ShHeap, ShValue | ShContFlag] {}
+    export function _runIf(env: ShEnv, heap: ShHeap, stmt: ThStmt): [ShHeap, ShValue | ShContFlag] {}
+    export function _runForIn(env: ShEnv, heap: ShHeap, stmt: ThStmt): [ShHeap, ShValue | ShContFlag] {}
+    export function _runReturn(env: ShEnv, heap: ShHeap, stmt: ThStmt): [ShHeap, ShValue | ShContFlag] {}
+    export function _runContinue(env: ShEnv, heap: ShHeap, stmt: ThStmt): [ShHeap, ShValue | ShContFlag] {}
+    export function _runBreak(env: ShEnv, heap: ShHeap, stmt: ThStmt): [ShHeap, ShValue | ShContFlag] {}
+    export function _runLet(env: ShEnv, heap: ShHeap, stmt: ThStmt): [ShHeap, ShValue | ShContFlag] {}
+    export function _runFunDef(env: ShEnv, heap: ShHeap, stmt: ThStmt): [ShHeap, ShValue | ShContFlag] {}
+    export function _evalConst(env: ShEnv, heap: ShHeap, expr: ThExpr): [ShHeap, ShValue] {}
+    export function _evalObject(env: ShEnv, heap: ShHeap, expr: ThExpr): [ShHeap, ShValue] {}
+    export function _evalTuple(env: ShEnv, heap: ShHeap, expr: ThExpr): [ShHeap, ShValue] {}
+    export function _evalCall(env: ShEnv, heap: ShHeap, expr: ThExpr): [ShHeap, ShValue] {}
+    export function _evalLibCall(env: ShEnv, heap: ShHeap, expr: ThExpr): [ShHeap, ShValue] {}
+    export function _evalBinOp(env: ShEnv, heap: ShHeap, expr: ThExpr): [ShHeap, ShValue] {}
+    export function _evalUnaryOp(env: ShEnv, heap: ShHeap, expr: ThExpr): [ShHeap, ShValue] {}
+    export function _evalName(env: ShEnv, heap: ShHeap, expr: ThExpr): [ShHeap, ShValue] {}
+    export function _evalAttr(env: ShEnv, heap: ShHeap, expr: ThExpr): [ShHeap, ShValue] {}
+    export function _evalSubscr(env: ShEnv, heap: ShHeap, expr: ThExpr): [ShHeap, ShValue] {}
 }
 
 export namespace TorchBackend {
