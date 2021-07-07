@@ -10,10 +10,6 @@ import { List } from 'immutable';
 
 import { ConsoleInterface } from 'pyright-internal/common/console';
 
-//import * as BackUtils from '../backend/backUtils';
-import { Context, ContextSet, ContextSetImpl, CtxExpr, CtxStmt } from '../backend/context';
-import { simplifyNum } from '../backend/expUtils';
-import { ExpNum, ExpString, NumBopType, SymExp } from '../backend/symExpressions';
 import {
     LibCallType,
     TEAttr,
@@ -47,22 +43,11 @@ import {
 } from '../frontend/torchStatements';
 import { BuiltinsLCImpl } from '../pylibImplements/builtins';
 import { evalLibCall } from '../pylibImplements/evaluator';
-import { sanitizeAddr } from './backUtils';
-import {
-    HConstTensor,
-    HEBopType,
-    HETopType,
-    HEType,
-    HEUopType,
-    HExpr,
-    HLet,
-    HNat,
-    HTop,
-    HVar,
-    HVarTensor,
-    HVarTensorType,
-} from './hExpression';
-import { ShEnv, ShHeap } from './sharpEnvironments';
+//import { sanitizeAddrSet, SymOpUtils } from './backUtils';
+import * as BackUtils from './backUtils';
+import { Context /*, ContextSet, ContextSetImpl, CtxExpr, CtxStmt*/ } from './context';
+//import { simplifyNum } from './expUtils';
+import { ShEnv } from './sharpEnvironments';
 import {
     CodeSource,
     ShContFlag,
@@ -82,112 +67,20 @@ import {
     svTypeToString,
     SVUndef,
 } from './sharpValues';
+//import { ExpNum, ExpString, NumBopType, SymExp } from './symExpressions';
 
 export namespace Translator {
-    export function run(env: ShEnv, heap: ShHeap, stmt: ThStmt): [ShHeap, ShValue | ShContFlag] {
-        switch (stmt.stype) {
-            case TSType.Pass:
-                return _runPass(env, heap, stmt);
-            case TSType.Expr:
-                return _runExpr(env, heap, stmt);
-            case TSType.Seq:
-                return _runSeq(env, heap, stmt);
-            case TSType.Assign:
-                return _runAssign(env, heap, stmt);
-            case TSType.If:
-                return _runIf(env, heap, stmt);
-            case TSType.ForIn:
-                return _runForIn(env, heap, stmt);
-            case TSType.Return:
-                return _runReturn(env, heap, stmt);
-            case TSType.Continue:
-                return _runContinue(env, heap, stmt);
-            case TSType.Break:
-                return _runBreak(env, heap, stmt);
-            case TSType.Let:
-                return _runLet(env, heap, stmt);
-            case TSType.FunDef:
-                return _runFunDef(env, heap, stmt);
-        }
-    }
-
-    export function evaluate(env: ShEnv, heap: ShHeap, expr: ThExpr): [ShHeap, ShValue] {
-        switch (expr.etype) {
-            case TEType.Const: {
-                const [newHeap, retVal] = _evalConst(env, heap, expr);
-                return [newHeap, sanitizeAddr(newHeap, retVal)];
-            }
-            case TEType.Object: {
-                const [newHeap, retVal] = _evalObject(env, heap, expr);
-                return [newHeap, sanitizeAddr(newHeap, retVal)];
-            }
-            case TEType.Tuple: {
-                const [newHeap, retVal] = _evalTuple(env, heap, expr);
-                return [newHeap, sanitizeAddr(newHeap, retVal)];
-            }
-            case TEType.Call: {
-                const [newHeap, retVal] = _evalCall(env, heap, expr);
-                return [newHeap, sanitizeAddr(newHeap, retVal)];
-            }
-            case TEType.LibCall: {
-                const [newHeap, retVal] = _evalLibCall(env, heap, expr);
-                return [newHeap, sanitizeAddr(newHeap, retVal)];
-            }
-            case TEType.BinOp: {
-                const [newHeap, retVal] = _evalBinOp(env, heap, expr);
-                return [newHeap, sanitizeAddr(newHeap, retVal)];
-            }
-            case TEType.UnaryOp: {
-                const [newHeap, retVal] = _evalUnaryOp(env, heap, expr);
-                return [newHeap, sanitizeAddr(newHeap, retVal)];
-            }
-            case TEType.Name: {
-                const [newHeap, retVal] = _evalName(env, heap, expr);
-                return [newHeap, sanitizeAddr(newHeap, retVal)];
-            }
-            case TEType.Attr: {
-                const [newHeap, retVal] = _evalAttr(env, heap, expr);
-                return [newHeap, sanitizeAddr(newHeap, retVal)];
-            }
-            case TEType.Subscr: {
-                const [newHeap, retVal] = _evalSubscr(env, heap, expr);
-                return [newHeap, sanitizeAddr(newHeap, retVal)];
-            }
-        }
-    }
-    export function _runPass(env: ShEnv, heap: ShHeap, stmt: ThStmt): [ShHeap, ShValue | ShContFlag] {}
-    export function _runExpr(env: ShEnv, heap: ShHeap, stmt: ThStmt): [ShHeap, ShValue | ShContFlag] {}
-    export function _runSeq(env: ShEnv, heap: ShHeap, stmt: ThStmt): [ShHeap, ShValue | ShContFlag] {}
-    export function _runAssign(env: ShEnv, heap: ShHeap, stmt: ThStmt): [ShHeap, ShValue | ShContFlag] {}
-    export function _runIf(env: ShEnv, heap: ShHeap, stmt: ThStmt): [ShHeap, ShValue | ShContFlag] {}
-    export function _runForIn(env: ShEnv, heap: ShHeap, stmt: ThStmt): [ShHeap, ShValue | ShContFlag] {}
-    export function _runReturn(env: ShEnv, heap: ShHeap, stmt: ThStmt): [ShHeap, ShValue | ShContFlag] {}
-    export function _runContinue(env: ShEnv, heap: ShHeap, stmt: ThStmt): [ShHeap, ShValue | ShContFlag] {}
-    export function _runBreak(env: ShEnv, heap: ShHeap, stmt: ThStmt): [ShHeap, ShValue | ShContFlag] {}
-    export function _runLet(env: ShEnv, heap: ShHeap, stmt: ThStmt): [ShHeap, ShValue | ShContFlag] {}
-    export function _runFunDef(env: ShEnv, heap: ShHeap, stmt: ThStmt): [ShHeap, ShValue | ShContFlag] {}
-    export function _evalConst(env: ShEnv, heap: ShHeap, expr: ThExpr): [ShHeap, ShValue] {}
-    export function _evalObject(env: ShEnv, heap: ShHeap, expr: ThExpr): [ShHeap, ShValue] {}
-    export function _evalTuple(env: ShEnv, heap: ShHeap, expr: ThExpr): [ShHeap, ShValue] {}
-    export function _evalCall(env: ShEnv, heap: ShHeap, expr: ThExpr): [ShHeap, ShValue] {}
-    export function _evalLibCall(env: ShEnv, heap: ShHeap, expr: ThExpr): [ShHeap, ShValue] {}
-    export function _evalBinOp(env: ShEnv, heap: ShHeap, expr: ThExpr): [ShHeap, ShValue] {}
-    export function _evalUnaryOp(env: ShEnv, heap: ShHeap, expr: ThExpr): [ShHeap, ShValue] {}
-    export function _evalName(env: ShEnv, heap: ShHeap, expr: ThExpr): [ShHeap, ShValue] {}
-    export function _evalAttr(env: ShEnv, heap: ShHeap, expr: ThExpr): [ShHeap, ShValue] {}
-    export function _evalSubscr(env: ShEnv, heap: ShHeap, expr: ThExpr): [ShHeap, ShValue] {}
-}
-
-export namespace TorchBackend {
+    /*
     export function runEmpty(stmt: ThStmt): ContextSet<ShValue | ShContFlag> {
         const emptyCtx: Context<undefined> = new Context({ retVal: undefined });
         return run(emptyCtx.toSet(), stmt);
-    }
+    }*/
 
     // module torch script must be start with `$module: OBJECT in ...`
     // and ends with `$module.global_var_1 = global_var_1; ... $module.global_var_n = global_var_n`
     // return environment of context would be attributes of $module
     // retVal will be address of $module object itself.
+    /*
     export function runModule(stmt: TSLet, relPath: string, ctxDefault?: Context<unknown>): ContextSet<SVAddr> {
         const id = stmt.name;
         const exp = TEObject.create(); //stmt.expr;
@@ -224,15 +117,17 @@ export namespace TorchBackend {
                 return ctx.setEnv(moduleEnv).setHeap(newHeap).setRetVal(addr);
             });
         });
-    }
+    }*/
 
     // run builtin library scripts and subtract memory offset
+    /*
     export function runBuiltin(stmt: ThStmt, relPath: string): ContextSet<SVAddr> {
         return runModule(stmt as TSLet, relPath).map((ctx) => ctx.asDefault());
-    }
+    }*/
 
     // milisecond timeout & path count timeout
     // if unset, run until memory error.
+    /*
     export function runWithFailure<T>(
         ctxSet: ContextSet<T>,
         stmt: ThStmt,
@@ -294,60 +189,60 @@ export namespace TorchBackend {
         ContextSet.clearCallbacks();
 
         return retVal;
-    }
+    }*/
 
-    export function run<T>(ctxSet: ContextSet<T>, stmt: ThStmt): ContextSet<ShValue | ShContFlag> {
+    export function run<T>(ctx: Context<T>, stmt: ThStmt): Context<ShValue | ShContFlag> {
         switch (stmt.stype) {
             case TSType.Pass:
-                return _runPass(ctxSet, stmt);
+                return _runPass(ctx, stmt);
             case TSType.Expr:
-                return _runExpr(ctxSet, stmt);
+                return _runExpr(ctx, stmt);
             case TSType.Seq:
-                return _runSeq(ctxSet, stmt);
+                return _runSeq(ctx, stmt);
             case TSType.Assign:
-                return _runAssign(ctxSet, stmt);
+                return _runAssign(ctx, stmt);
             case TSType.If:
-                return _runIf(ctxSet, stmt);
+                return _runIf(ctx, stmt);
             case TSType.ForIn:
-                return _runForIn(ctxSet, stmt);
+                return _runForIn(ctx, stmt);
             case TSType.Return:
-                return _runReturn(ctxSet, stmt);
+                return _runReturn(ctx, stmt);
             case TSType.Continue:
-                return _runContinue(ctxSet, stmt);
+                return _runContinue(ctx, stmt);
             case TSType.Break:
-                return _runBreak(ctxSet, stmt);
+                return _runBreak(ctx, stmt);
             case TSType.Let:
-                return _runLet(ctxSet, stmt);
+                return _runLet(ctx, stmt);
             case TSType.FunDef:
-                return _runFunDef(ctxSet, stmt);
+                return _runFunDef(ctx, stmt);
         }
     }
 
-    export function evaluate<T>(ctxSet: ContextSet<T>, expr: ThExpr): ContextSet<ShValue> {
+    export function evaluate<T>(ctx: Context<T>, expr: ThExpr): Context<ShValue> {
         switch (expr.etype) {
             case TEType.Const:
-                return sanitizeAddrSet(_evalConst(ctxSet, expr));
+                return BackUtils.sanitizeAddrCtx(_evalConst(ctx, expr));
             case TEType.Object:
-                return sanitizeAddrSet(_evalObject(ctxSet, expr));
+                return BackUtils.sanitizeAddrCtx(_evalObject(ctx, expr));
             case TEType.Tuple:
-                return sanitizeAddrSet(_evalTuple(ctxSet, expr));
+                return BackUtils.sanitizeAddrCtx(_evalTuple(ctx, expr));
             case TEType.Call:
-                return sanitizeAddrSet(_evalCall(ctxSet, expr));
+                return BackUtils.sanitizeAddrCtx(_evalCall(ctx, expr));
             case TEType.LibCall:
-                return sanitizeAddrSet(_evalLibCall(ctxSet, expr));
+                return BackUtils.sanitizeAddrCtx(_evalLibCall(ctx, expr));
             case TEType.BinOp:
-                return sanitizeAddrSet(_evalBinOp(ctxSet, expr));
+                return BackUtils.sanitizeAddrCtx(_evalBinOp(ctx, expr));
             case TEType.UnaryOp:
-                return sanitizeAddrSet(_evalUnaryOp(ctxSet, expr));
+                return BackUtils.sanitizeAddrCtx(_evalUnaryOp(ctx, expr));
             case TEType.Name:
-                return sanitizeAddrSet(_evalName(ctxSet, expr));
+                return BackUtils.sanitizeAddrCtx(_evalName(ctx, expr));
             case TEType.Attr:
-                return sanitizeAddrSet(_evalAttr(ctxSet, expr));
+                return BackUtils.sanitizeAddrCtx(_evalAttr(ctx, expr));
             case TEType.Subscr:
-                return sanitizeAddrSet(_evalSubscr(ctxSet, expr));
+                return BackUtils.sanitizeAddrCtx(_evalSubscr(ctx, expr));
         }
     }
-
+    /*
     export function evalAll<T>(ctxSet: ContextSet<T>, exprs: ThExpr[]): ContextSet<ShValue[]> {
         let newSet: ContextSet<ShValue[]> = ctxSet.return([]);
 
@@ -358,8 +253,9 @@ export namespace TorchBackend {
         }
 
         return newSet;
-    }
+    }*/
 
+    /*
     export function classInit<T>(
         ctx: Context<T>,
         classObj: SVObject,
@@ -373,8 +269,9 @@ export namespace TorchBackend {
         }
 
         return functionCall(ctx, init, args, source, kwargs);
-    }
+    }*/
 
+    /*
     export function libClassInit<T>(
         ctx: Context<T>,
         qualPath: string,
@@ -393,7 +290,7 @@ export namespace TorchBackend {
         }
 
         return classInit(ctx, classVal, args, source, kwargs);
-    }
+    }*/
 
     // process Call(f, args)
     export function functionCall<T>(
@@ -402,14 +299,14 @@ export namespace TorchBackend {
         args: ShValue[],
         source: CodeSource | undefined,
         kwargs?: { [paramName: string]: ShValue }
-    ): ContextSet<ShValue> {
+    ): Context<ShValue> {
         const { env, heap } = ctx;
         if (f === undefined) {
-            return ctx.warnWithMsg('function not found', source).toSet();
+            return ctx.warnWithMsg('function not found', source);
         }
 
         if (f.funcEnv === undefined) {
-            return ctx.failWithMsg(`env of a function ${f} is not defined`, source).toSet();
+            return ctx.failWithMsg(`env of a function ${f} is not defined`, source);
         }
 
         let newHeap = heap;
@@ -494,68 +391,48 @@ export namespace TorchBackend {
         }
 
         // run the function body
-        const symIdMax = ctx.ctrSet.idManager.symIdMax;
-        let newCtx = run(ctx.setEnv(fEnv).setHeap(newHeap).pushCallStack([f, source]).toSet(), f.funcBody);
+        let newCtx = run(ctx.setEnv(fEnv).setHeap(newHeap).pushCallStack([f, source]), f.funcBody);
 
-        // check called function is (behaviourly) pure function with some path divergences.
-        newCtx = newCtx.prunePureFunctionCall(ctx, symIdMax);
+        let value = newCtx.retVal;
+        if (value === ShContFlag.Brk || value === ShContFlag.Cnt || value === ShContFlag.Run) {
+            // this is right. a function without any return method actually returns None.
+            value = SVNone.create(source);
+        }
 
-        return newCtx.map((ctx) => {
-            let value = ctx.retVal;
-            if (value === ShContFlag.Brk || value === ShContFlag.Cnt || value === ShContFlag.Run) {
-                // this is right. a function without any return method actually returns None.
-                value = SVNone.create(source);
-            }
+        // free temp addresses for argument if body has no closure
+        newCtx = newCtx.popCallStack().setEnv(env);
+        if (!f.hasClosure) {
+            let heap = newCtx.heap;
+            argAddrs.forEach((addr) => {
+                heap = heap.free(addr);
+            });
+            newCtx = newCtx.setHeap(heap);
+        }
 
-            // free temp addresses for argument if body has no closure
-            let newCtx = ctx.popCallStack().setEnv(env);
-            if (!f.hasClosure) {
-                let heap = newCtx.heap;
-                argAddrs.forEach((addr) => {
-                    heap = heap.free(addr);
-                });
-                newCtx = newCtx.setHeap(heap);
-            }
-
-            return newCtx.setRetVal(value);
-        });
+        return newCtx.setRetVal(value);
     }
 
-    export function functionCallSet<T>(
-        ctxSet: ContextSet<T>,
-        f: SVFunc,
-        args: ShValue[],
-        source: CodeSource | undefined,
-        kwargs?: { [paramName: string]: ShValue }
-    ): ContextSet<ShValue> {
-        return ctxSet.flatMap((ctx) => functionCall(ctx, f, args, source, kwargs));
+    function _runPass<T>(ctx: Context<T>, stmt: TSPass): Context<ShValue | ShContFlag> {
+        return ctx.setRetVal(ShContFlag.Run);
     }
 
-    function _runPass<T>(ctxSet: ContextSet<T>, stmt: TSPass): ContextSet<ShValue | ShContFlag> {
-        return ctxSet.return(ShContFlag.Run);
-    }
-
-    function _runExpr<T>(ctxSet: ContextSet<T>, stmt: TSExpr): ContextSet<ShValue | ShContFlag> {
+    function _runExpr<T>(ctx: Context<T>, stmt: TSExpr): Context<ShValue | ShContFlag> {
         const exp = stmt.expr;
-        const newSet = evaluate(ctxSet, exp);
+        const newCtx = evaluate(ctx, exp);
 
-        return newSet.return(ShContFlag.Run);
+        return newCtx.setRetVal(ShContFlag.Run);
     }
 
-    function _runSeq<T>(ctxSet: ContextSet<T>, stmt: TSSeq): ContextSet<ShValue | ShContFlag> {
+    function _runSeq<T>(ctx: Context<T>, stmt: TSSeq): Context<ShValue | ShContFlag> {
         const stmt1 = stmt.left;
         const stmt2 = stmt.right;
 
-        const newSet = run(ctxSet, stmt1);
-        return newSet.flatMap((ctx) => {
-            const nextSet = ctx.toSet();
-
-            if (ctx.retVal === ShContFlag.Run) {
-                return run(nextSet, stmt2);
-            } else {
-                return nextSet;
-            }
-        });
+        const newCtx = run(ctx, stmt1);
+        if (newCtx.retVal === ShContFlag.Run) {
+            return run(newCtx, stmt2);
+        } else {
+            return newCtx;
+        }
     }
 
     // TODO: change all getAttr to this.
@@ -564,16 +441,16 @@ export namespace TorchBackend {
         object: ShValue,
         name: string,
         source: CodeSource | undefined
-    ): ContextSet<ShValue> {
+    ): Context<ShValue> {
         const objVal = BackUtils.fetchAddr(object, ctx.heap);
 
         if (!objVal) {
-            return ctx.warnWithMsg(`getAttrDeep '${name}': invalid address of object`, source).toSet();
+            return ctx.warnWithMsg(`getAttrDeep '${name}': invalid address of object`, source);
         }
 
         // propagate warning
         if (objVal.type === SVType.Error) {
-            return ctx.setRetVal(objVal).toSet();
+            return ctx.setRetVal(objVal);
         }
 
         // if name == '__dict__', return dictionary of attrs
@@ -595,7 +472,7 @@ export namespace TorchBackend {
             if (dictType?.type === SVType.Object) {
                 dictObj = dictObj.setAttr('__mro__', dictType);
             }
-            return ctx.setHeap(newHeap.setVal(dictAddr, dictObj)).toSetWith(dictObj);
+            return ctx.setHeap(newHeap.setVal(dictAddr, dictObj)).setRetVal(dictObj);
         }
 
         const attr = objVal.type === SVType.Object ? objVal.attrs.get(name) : undefined;
@@ -631,15 +508,15 @@ export namespace TorchBackend {
                             let bounded: SVFunc | undefined;
                             if (objVal.type === SVType.Object) {
                                 bounded = mayMethod.bound(objVal.addr);
-                                return ctx.setRetVal(bounded).toSet();
+                                return ctx.setRetVal(bounded);
                             } else {
                                 // object is primitive value
                                 const [addr, newHeap] = ctx.heap.allocNew(objVal, source);
                                 bounded = mayMethod.bound(addr);
-                                return ctx.setHeap(newHeap).setRetVal(bounded).toSet();
+                                return ctx.setHeap(newHeap).setRetVal(bounded);
                             }
                         }
-                        return ctx.setRetVal(attr).toSet();
+                        return ctx.setRetVal(attr);
                     }
                 }
 
@@ -669,9 +546,9 @@ export namespace TorchBackend {
                 }
             }
 
-            return ctx.warnWithMsg(`getAttrDeep '${name}': attribute not found${classLog}`, source).toSet();
+            return ctx.warnWithMsg(`getAttrDeep '${name}': attribute not found${classLog}`, source);
         } else {
-            return ctx.setRetVal(attr).toSet();
+            return ctx.setRetVal(attr);
         }
     }
 
@@ -679,29 +556,28 @@ export namespace TorchBackend {
     export function getIndiceDeep<T>(
         ctx: Context<T>,
         object: ShValue,
-        index: number | ExpNum,
+        index: number,
         source: CodeSource | undefined
-    ): ContextSet<ShValue> {
+    ): Context<ShValue> {
         const objVal = BackUtils.fetchAddr(object, ctx.heap);
 
         if (objVal?.type !== SVType.Object) {
-            return ctx.warnWithMsg(`getIndiceDeep ${index}: value is not an object`, source).toSet();
+            return ctx.warnWithMsg(`getIndiceDeep ${index}: value is not an object`, source);
         }
 
         const item = typeof index === 'number' ? objVal.indices.get(index) : undefined;
 
         if (item === undefined) {
-            return ctx.getAttrDeep(object, '__getitem__', source).flatMap((ctx) => {
-                const getItem = ctx.retVal;
-                if (getItem?.type === SVType.Func) {
-                    return functionCall(ctx, getItem, [SVInt.create(index, source)], source);
-                } else {
-                    return ctx.warnWithMsg(`getIndiceDeep ${index}: index ${index} not exist.`, source).toSet();
-                }
-            });
+            const newCtx = ctx.getAttrDeep(object, '__getitem__', source);
+            const getItem = newCtx.retVal;
+            if (getItem?.type === SVType.Func) {
+                return functionCall(newCtx, getItem, [SVInt.create(index, source)], source);
+            } else {
+                return newCtx.warnWithMsg(`getIndiceDeep ${index}: index ${index} not exist.`, source);
+            }
         }
 
-        return ctx.setRetVal(item).toSet();
+        return ctx.setRetVal(item);
     }
 
     // TODO: change all getKeyVal to this.
@@ -710,163 +586,124 @@ export namespace TorchBackend {
         object: ShValue,
         key: string,
         source: CodeSource | undefined
-    ): ContextSet<ShValue> {
+    ): Context<ShValue> {
         const objVal = BackUtils.fetchAddr(object, ctx.heap);
 
         if (objVal?.type !== SVType.Object) {
-            return ctx.warnWithMsg(`getKeyValDeep ${key}: value is not an object`, source).toSet();
+            return ctx.warnWithMsg(`getKeyValDeep ${key}: value is not an object`, source);
         }
 
         const item = objVal.keyValues.get(key);
 
         if (item === undefined) {
-            return ctx.getAttrDeep(object, '__getitem__', source).flatMap((ctx) => {
-                const getItem = ctx.retVal;
-                if (getItem?.type === SVType.Func) {
-                    return functionCall(ctx, getItem, [SVString.create(key, source)], source);
-                } else {
-                    return ctx.warnWithMsg(`getKeyValDeep ${key}: key ${key} not exist.`, source).toSet();
-                }
-            });
+            const newCtx = ctx.getAttrDeep(object, '__getitem__', source);
+            const getItem = newCtx.retVal;
+            if (getItem?.type === SVType.Func) {
+                return functionCall(newCtx, getItem, [SVString.create(key, source)], source);
+            } else {
+                return newCtx.warnWithMsg(`getKeyValDeep ${key}: key ${key} not exist.`, source);
+            }
         }
 
-        return ctx.setRetVal(item).toSet();
+        return ctx.setRetVal(item);
     }
 
-    function _runAssign<T>(ctxSet: ContextSet<T>, stmt: TSAssign): ContextSet<ShValue | ShContFlag> {
+    function _runAssign<T>(ctx: Context<T>, stmt: TSAssign): Context<ShValue | ShContFlag> {
         const lexpr = stmt.left;
         const rexpr = stmt.right;
 
         if (lexpr.etype === TEType.Name) {
             const id = lexpr.ident;
 
-            return ctxSet.flatMap((ctx) => {
-                const nextSet = ctx.toSet();
-                const addr = ctx.env.getId(id);
-                if (addr === undefined) {
-                    return ctx.failWithMsg(`address not found at id ${id}`, stmt.source).toSet() as CtxStmt;
-                }
+            const addr = ctx.env.getId(id);
+            if (addr === undefined) {
+                return ctx.failWithMsg(`address not found at id ${id}`, stmt.source);
+            }
 
-                // move semantics of $TMP$ value.
-                if (rexpr.etype === TEType.Name && rexpr.ident.endsWith('$TMP$')) {
-                    let newCtx = ctx;
-                    let heap = ctx.heap;
-                    const tmpAddr = ctx.env.getId(rexpr.ident);
-                    if (tmpAddr) {
-                        const tmpVal = BackUtils.fetchAddr(tmpAddr, heap);
-                        heap = heap.free(tmpAddr);
-                        if (tmpVal) {
-                            heap = heap.setVal(addr, tmpVal);
-                        }
-                        newCtx = ctx.setHeap(heap).setEnv(ctx.env.removeId(rexpr.ident));
+            // move semantics of $TMP$ value.
+            if (rexpr.etype === TEType.Name && rexpr.ident.endsWith('$TMP$')) {
+                let newCtx = ctx;
+                let heap = ctx.heap;
+                const tmpAddr = ctx.env.getId(rexpr.ident);
+                if (tmpAddr) {
+                    const tmpVal = BackUtils.fetchAddr(tmpAddr, heap);
+                    heap = heap.free(tmpAddr);
+                    if (tmpVal) {
+                        heap = heap.setVal(addr, tmpVal);
                     }
-                    return newCtx.setRetVal(ShContFlag.Run).toSet();
+                    newCtx = ctx.setHeap(heap).setEnv(ctx.env.removeId(rexpr.ident));
                 }
-                const nextSet2 = evaluate(nextSet, rexpr);
-                const nextSet3 = nextSet2.map((ctx) => {
-                    return ctx.setHeap(ctx.heap.setVal(addr, ctx.retVal));
-                });
-                return nextSet3.return(ShContFlag.Run);
-            });
+                return newCtx.setRetVal(ShContFlag.Run);
+            }
+            const nextCtx = evaluate(ctx, rexpr);
+            const nextCtx2 = nextCtx.setHeap(nextCtx.heap.setVal(addr, nextCtx.retVal));
+            return nextCtx2.setRetVal(ShContFlag.Run);
         } else if (lexpr.etype === TEType.Attr) {
             const exp1 = lexpr.left;
             const id = lexpr.right;
             const exp2 = rexpr;
 
-            const nextSet = evaluate(ctxSet, exp1);
-            return nextSet.flatMap((ctx) => {
-                const addr = ctx.retVal;
-                if (addr.type !== SVType.Addr) {
-                    if (addr.type === SVType.Error) return ctx.toSetWith(addr);
-                    return ctx.failWithMsg(`${ctx.retVal} is not an address`, stmt.source).toSet() as CtxStmt;
-                }
-                const nextSet2 = ctx.toSet();
-                const nextSet3 = evaluate(nextSet2, exp2);
-                const nextSet4 = nextSet3.map((ctx) => {
-                    const value = ctx.retVal;
-                    const obj = BackUtils.fetchAddr(addr, ctx.heap);
-                    if (obj === undefined || obj.type !== SVType.Object) {
-                        if (obj?.type === SVType.Error) return ctx.setRetVal(obj);
-                        return ctx.failWithMsg(`object not found at address ${addr}`, stmt.source);
-                    }
-                    const newObj = obj.setAttr(id, value);
-                    const newHeap = ctx.heap.setVal(addr, newObj);
-                    return ctx.setHeap(newHeap);
-                });
-                return nextSet4.return(ShContFlag.Run);
-            });
+            const nextCtx = evaluate(ctx, exp1);
+            const addr = nextCtx.retVal;
+            if (addr.type !== SVType.Addr) {
+                if (addr.type === SVType.Error) return nextCtx.setRetVal(addr);
+                return nextCtx.failWithMsg(`${nextCtx.retVal} is not an address`, stmt.source);
+            }
+            const nextCtx2 = nextCtx;
+            const nextCtx3 = evaluate(nextCtx2, exp2);
+            const value = nextCtx3.retVal;
+            const obj = BackUtils.fetchAddr(addr, nextCtx3.heap);
+            if (obj === undefined || obj.type !== SVType.Object) {
+                if (obj?.type === SVType.Error) return nextCtx3.setRetVal(obj);
+                return nextCtx3.failWithMsg(`object not found at address ${addr}`, stmt.source);
+            }
+            const newObj = obj.setAttr(id, value);
+            const newHeap = nextCtx3.heap.setVal(addr, newObj);
+            return nextCtx3.setHeap(newHeap).setRetVal(ShContFlag.Run);
         } else if (lexpr.etype === TEType.Subscr) {
             const exp1 = lexpr.left;
             const exp2 = lexpr.right;
             const exp3 = rexpr;
 
-            const nextSet = evaluate(ctxSet, exp1);
-            return nextSet.flatMap((ctx) => {
-                const obj = BackUtils.fetchAddr(ctx.retVal, ctx.heap);
-                if (obj?.type !== SVType.Object) {
-                    if (obj?.type === SVType.Error) return ctx.toSetWith(obj);
-                    return ctx.failWithMsg(`${ctx.retVal} is not an address`, stmt.source).toSet() as CtxStmt;
+            const nextCtx = evaluate(ctx, exp1);
+            const obj = BackUtils.fetchAddr(nextCtx.retVal, nextCtx.heap);
+            if (obj?.type !== SVType.Object) {
+                if (obj?.type === SVType.Error) return nextCtx;
+                return nextCtx.failWithMsg(`${nextCtx.retVal} is not an address`, stmt.source);
+            }
+
+            const nextCtx2 = nextCtx.getAttrDeep(obj, '__setitem__', stmt.source);
+            const func = BackUtils.fetchAddr(nextCtx2.retVal, nextCtx2.heap);
+
+            // __setitem__ is not exist. assume lexpr is list and use default behaviour.
+            if (func === undefined) {
+                const nextCtx3 = evaluate(nextCtx2, exp2);
+                const idx = BackUtils.fetchAddr(nextCtx3.retVal, nextCtx3.heap);
+                if (idx?.type !== SVType.Int) {
+                    return nextCtx3.warnWithMsg(`__setitem__ index ${idx} is not a number`, stmt.source);
                 }
-
-                return ctx.getAttrDeep(obj, '__setitem__', stmt.source).flatMap((ctx) => {
-                    const func = BackUtils.fetchAddr(ctx.retVal, ctx.heap);
-
-                    // __setitem__ is not exist. assume lexpr is list and use default behaviour.
-                    if (func === undefined) {
-                        return evaluate(ctx.toSet(), exp2).flatMap((ctx) => {
-                            const idx = BackUtils.fetchAddr(ctx.retVal, ctx.heap);
-                            if (idx?.type !== SVType.Int) {
-                                return ctx
-                                    .warnWithMsg(`__setitem__ index ${idx} is not a number`, stmt.source)
-                                    .toSet() as CtxStmt;
-                            }
-                            const nextSet4 = ctx.toSet();
-                            const nextSet5 = evaluate(nextSet4, exp3);
-                            const nextSet6 = nextSet5.map((ctx) => {
-                                const value = ctx.retVal;
-                                if (typeof idx.value === 'number') {
-                                    const newObj = obj.setIndice(idx.value, value);
-                                    const newHeap = ctx.heap.setVal(newObj.addr, newObj);
-                                    return ctx.setHeap(newHeap);
-                                } else {
-                                    // n is symbolic value
-                                    const evaluated = ctx.ctrSet.getCachedRange(idx.value);
-                                    if (evaluated?.isConst()) {
-                                        const idxInt = evaluated.start;
-                                        const newObj = obj.setIndice(idxInt, value);
-                                        const newHeap = ctx.heap.setVal(newObj.addr, newObj);
-                                        return ctx.setHeap(newHeap);
-                                    }
-                                    return ctx.warnWithMsg(
-                                        `index ${idx} is a symbolic value, assigment operation is not executed.`,
-                                        stmt.source
-                                    );
-                                }
-                            });
-                            return nextSet6.return(ShContFlag.Run);
-                        });
-                    } else {
-                        if (func.type !== SVType.Func) {
-                            return ctx.warnWithMsg(`__setitem__ ${func} is not a function`, stmt.source).toSet();
-                        }
-                        return evaluate(ctx.toSet(), exp2).flatMap((ctx) => {
-                            const indexValue = ctx.retVal;
-                            return evaluate(ctx.toSet(), exp3)
-                                .flatMap((ctx) => {
-                                    const setValue = ctx.retVal;
-                                    return functionCall(ctx, func, [indexValue, setValue], stmt.source);
-                                })
-                                .return(ShContFlag.Run);
-                        });
-                    }
-                });
-            });
+                const nextCtx4 = evaluate(nextCtx3, exp3);
+                const value = nextCtx4.retVal;
+                const newObj = obj.setIndice(idx.value, value);
+                const newHeap = nextCtx4.heap.setVal(newObj.addr, newObj);
+                return nextCtx4.setHeap(newHeap).setRetVal(ShContFlag.Run);
+            } else {
+                if (func.type !== SVType.Func) {
+                    return nextCtx2.warnWithMsg(`__setitem__ ${func} is not a function`, stmt.source);
+                }
+                const nextCtx3 = evaluate(nextCtx2, exp2);
+                const indexValue = nextCtx3.retVal;
+                const nextCtx4 = evaluate(nextCtx3, exp3);
+                const setValue = nextCtx4.retVal;
+                return functionCall(nextCtx4, func, [indexValue, setValue], stmt.source).setRetVal(ShContFlag.Run);
+            }
         } else {
-            return ctxSet.fail('cannot reach here', stmt.source);
+            return ctx.failWithMsg('cannot reach here', stmt.source);
         }
     }
 
     // check the statement can be ignored
+
     function _checkEmpty(stmt: ThStmt): boolean {
         switch (stmt.stype) {
             case TSType.Expr:
@@ -891,7 +728,7 @@ export namespace TorchBackend {
         return false;
     }
 
-    function _runIf<T>(ctxSet: ContextSet<T>, stmt: TSIf): ContextSet<ShValue | ShContFlag> {
+    function _runIf<T>(ctxSet: Context<T>, stmt: TSIf): Context<ShValue | ShContFlag> {
         const exp = stmt.cond;
         const stmt_t = stmt.thenStmt;
         const stmt_f = stmt.elseStmt;
@@ -901,19 +738,17 @@ export namespace TorchBackend {
             return run(ctxSet, TSExpr.create(exp));
         }
 
-        return evaluate(ctxSet, exp).flatMap((ctx) => {
-            const value = ctx.retVal;
-            const isTruthy = BackUtils.isTruthy(ctx, value, exp.source);
+        const nextCtx = evaluate(ctxSet, exp);
+        const value = nextCtx.retVal;
+        const isTruthy = BackUtils.isTruthy(nextCtx, value, exp.source);
 
-            if (isTruthy === true) {
-                return run(ctx.toSet(), stmt_t);
-            } else if (isTruthy === false) {
-                return run(ctx.toSet(), stmt_f);
-            } else {
-                const [truePath, falsePath] = ctx.toSet().ifThenElse(isTruthy, exp.source);
-                return run(truePath, stmt_t).join(run(falsePath, stmt_f));
-            }
-        });
+        if (isTruthy === true) {
+            return run(nextCtx, stmt_t);
+        } else if (isTruthy === false) {
+            return run(nextCtx, stmt_f);
+        } else {
+            return nextCtx.failWithMsg(`condition can't be determined statically`, stmt.source);
+        }
     }
 
     function _runForIn<T>(ctxSet: ContextSet<T>, stmt: TSForIn): ContextSet<ShValue | ShContFlag> {

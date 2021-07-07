@@ -10,9 +10,10 @@ import { ParseNode } from 'pyright-internal/parser/parseNodes';
 
 //import { TEBinOp, TEBopType, TEUopType } from '../frontend/torchStatements';
 import { FilePathStore } from '../service/executionPaths';
+import { Context } from './context';
 import { ShEnv, ShHeap } from './sharpEnvironments';
 import {
-    //CodeSource,
+    CodeSource,
     ShValue,
     SVAddr,
     //SVBool,
@@ -59,27 +60,70 @@ export function fetchAddr(value: ShValue | undefined, heap: ShHeap): ShValue | u
     return value;
 }
 
+export function isTruthy<T>(ctx: Context<T>, value: ShValue, source: CodeSource | undefined): boolean {
+    const heap = ctx.heap;
+
+    switch (value.type) {
+        case SVType.Addr: {
+            const obj = heap.getValRecur(value);
+            if (!obj) {
+                // TODO: really?
+                return false;
+            }
+            return isTruthy(ctx, obj, source);
+        }
+        case SVType.Bool:
+            return value.value;
+        case SVType.Int:
+        case SVType.Float:
+            return value.value !== 0;
+        case SVType.Object: {
+            const length = value.getAttr('$length');
+            if (length !== undefined) {
+                return isTruthy(ctx, length, source);
+            }
+            return true;
+        }
+        case SVType.String:
+            return value.value !== '';
+        case SVType.None:
+            return false;
+        case SVType.NotImpl:
+            return true;
+        default:
+            // TODO: really?
+            return true;
+    }
+}
+
 // if retVal is address of address of ... some value, return that value otherwise the value is object
 // if the endpoint is object, return the address of object.
 // if retVal is non-address, just return it.
-export function sanitizeAddr(heap: ShHeap, retVal: ShValue | undefined): ShValue {
-    if (retVal === undefined) {
-        return SVError.error('sanitizeAddr: undefined retVal', undefined);
-    }
-    if (retVal.type !== SVType.Addr) {
+export function sanitizeAddr(retVal: ShValue | undefined, heap: ShHeap): ShValue | undefined {
+    if (!retVal || retVal.type !== SVType.Addr) {
         return retVal;
     }
 
     const fetch = heap.getVal(retVal);
 
-    if (fetch === undefined) {
-        return SVError.error('sanitizeAddr: unresolved address', undefined);
+    if (!fetch) {
+        return;
     } else if (fetch.type === SVType.Object) {
         // defensive implementation
         return retVal;
     } else {
         return fetch;
     }
+}
+export function sanitizeAddrCtx(ctx: Context<ShValue>): Context<ShValue> {
+    const { heap, retVal } = ctx;
+
+    const fetch = sanitizeAddr(retVal, heap);
+    if (fetch === undefined) {
+        return ctx.warnWithMsg(`accessed to undefined address: ${retVal.toString()}`, retVal.source);
+    }
+
+    return ctx.setRetVal(fetch);
 }
 
 export function sanitizeSource(obj: Object, pathStore?: FilePathStore): typeof obj {
