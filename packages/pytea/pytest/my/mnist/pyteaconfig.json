@@ -1,0 +1,9 @@
+{
+    "pythonCmdArgs": {
+        "epochs": 1
+    },
+    "logLevel": "reduced",
+    "entryPath": "./main.py",
+    "netClass": "model",
+    "netInstance": "output"
+}

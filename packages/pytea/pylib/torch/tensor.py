@@ -24,6 +24,7 @@ class Tensor:
         else:
             self.dtype = dtype
         self.data = self
+        self.h = LibCall.h.plain(args)
 
     # # TODO: make @staticmethod
     def __getattr__(self, attr):
@@ -52,10 +53,14 @@ class Tensor:
         return len(self.shape)
 
     def matmul(self, other):
-        return torch.matmul(self, other)
+        tensor = torch.matmul(self, other)
+        tensor.h = LibCall.h.matmul(self.h, other.h)
+        return tensor
 
     def add(self, other):
-        return torch._bop(self, other)
+        tensor = torch._bop(self, other)
+        tensor.h = LibCall.h.add(self.h, other.h)
+        return tensor
 
     def add_(self, other):
         torch._bop(self, other)
@@ -237,6 +242,7 @@ class Tensor:
     def view(self, *shape):
         tensor = LibCall.torch.view(self, shape)
         tensor.dtype = self.dtype
+        tensor.h = LibCall.h.reshape(self.h, tensor.shape)
         return tensor
 
     def view_as(self, other):
@@ -432,22 +438,51 @@ class Tensor:
         return torch.neg(self)
 
     def __add__(self, other):
-        return torch._bop(self, other)
+        tensor = torch._bop(self, other)
+        if isinstance(other, Tensor):
+            tensor.h = LibCall.h.add(self.h, other.h)
+        else:
+            tensor.h = LibCall.h.add(self.h, other)
+        return tensor
 
     def __radd__(self, other):
-        return torch._bop(self, other)
+        tensor = torch._bop(self, other)
+        if isinstance(other, Tensor):
+            tensor.h = LibCall.h.add(self.h, other.h)
+        else:
+            tensor.h = LibCall.h.add(self.h, other)
+        return tensor
 
     def __sub__(self, other):
-        return torch._bop(self, other)
+        tensor = torch._bop(self, other)
+        if isinstance(other, Tensor):
+            tensor.h = LibCall.h.sub(self.h, other.h)
+        else:
+            tensor.h = LibCall.h.sub(self.h, other)
+        return tensor
 
     def __rsub__(self, other):
-        return torch._bop(self, other)
+        tensor = torch._bop(self, other)
+        if isinstance(other, Tensor):
+            tensor.h = LibCall.h.sub(self.h, other.h)
+        else:
+            tensor.h = LibCall.h.sub(self.h, other)
 
     def __mul__(self, other):
-        return torch._bop(self, other)
+        tensor = torch._bop(self, other)
+        if isinstance(other, Tensor):
+            tensor.h = LibCall.h.mul(self.h, other.h)
+        else:
+            tensor.h = LibCall.h.mul(self.h, other)
+        return tensor
 
     def __rmul__(self, other):
-        return torch._bop(self, other)
+        tensor = torch._bop(self, other)
+        if isinstance(other, Tensor):
+            tensor.h = LibCall.h.mul(self.h, other.h)
+        else:
+            tensor.h = LibCall.h.mul(self.h, other)
+        return tensor
 
     def __pow__(self, other):
         return torch._bop(self, other)
@@ -510,7 +545,9 @@ class Tensor:
         return tensor
 
     def max(self, dim=None, keepdim=False):
-        return torch.max(self, dim, keepdim)
+        tensor = torch.max(self, dim, keepdim)
+        tensor.h = self.h
+        return tensor
 
     def sqrt(self):
         return torch.sqrt(self)

@@ -12,7 +12,12 @@ def conv2d(
         padding = (padding, padding)
     if isinstance(dilation, int):
         dilation = (dilation, dilation)
-    return LibCall.torch.conv2d(input, weight, bias, stride, padding, dilation, groups)
+    tensor = LibCall.torch.conv2d(input, weight, bias, stride, padding, dilation, groups)
+    if bias is None:
+        tensor.h = LibCall.h.convol(input.h, weight.h)    
+    else:
+        tensor.h = LibCall.h.add(LibCall.h.convol(input.h, weight.h), bias.h)
+    return tensor
 
 
 def conv_transpose2d(
@@ -58,9 +63,11 @@ def max_pool2d(
         padding = (padding, padding)
     if isinstance(dilation, int):
         dilation = (dilation, dilation)
-    return LibCall.torch.pool2d(
+    tensor = LibCall.torch.pool2d(
         input, kernel_size, stride, padding, dilation, ceil_mode
     )
+    tensor.h = LibCall.h.maxpool(input.h, kernel_size[0], kernel_size[1])
+    return tensor
 
 
 def avg_pool2d(
@@ -80,7 +87,9 @@ def avg_pool2d(
         stride = (stride, stride)
     if isinstance(padding, int):
         padding = (padding, padding)
-    return LibCall.torch.pool2d(input, kernel_size, stride, padding, 1, ceil_mode)
+    tensor =  LibCall.torch.pool2d(input, kernel_size, stride, padding, 1, ceil_mode)
+    tensor.h = LibCall.h.averagepool(input.h, kernel_size[0], kernel_size[1])
+    return tensor
 
 
 def nll_loss(
@@ -166,11 +175,15 @@ def softmax(input, dim=None, _stacklevel=3, dtype=None):
 def dropout(input, p=0.5, training=True, inplace=False):
     if p < 0.0 or p > 1.0:
         raise ValueError("dropout probability has to be between 0 and 1, but got ...")
-    return LibCall.torch.identityShape(input)
+    tensor = LibCall.torch.identityShape(input)
+    tensor.h = input.h
+    return tensor
 
 
 def relu(input):
-    return LibCall.torch.identityShape(input)
+    tensor = LibCall.torch.identityShape(input)
+    tensor.h = LibCall.h.relu(input.h)
+    return tensor
 
 
 def gelu(input):

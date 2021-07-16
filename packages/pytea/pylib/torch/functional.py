@@ -166,6 +166,7 @@ def matmul(input, other, out=None):
     dtype = input.dtype
     tensor = LibCall.torch.matmul(input, other)
     tensor.dtype = dtype
+    tensor.h = LibCall.h.matmul(input.h, other.h)
     LibCall.torch.copyOut(tensor, out)
     return tensor
 
@@ -202,6 +203,7 @@ def transpose(input, dim0, dim1):
     dtype = input.dtype
     tensor = LibCall.torch.transpose(input, dim0, dim1)
     tensor.dtype = dtype
+    tensor.h = LibCall.h.transpose(input.h, dim0, dim1)
     return tensor
 
 
@@ -233,12 +235,15 @@ def max(input, dim=None, keepdim=False, out=None):
         tensor = LibCall.torch.reduce(input, dim, keepdim)
         tensor.dtype = dtype
         LibCall.torch.copyOut(tensor, out)
+        tensor.h = LibCall.h.max(input.h)
         return tensor
     elif isinstance(dim, int):
         tensor = LibCall.torch.reduce(input, dim, keepdim)
         tensor.dtype = dtype
+        tensor.h = LibCall.h.maxr(input.h, dim)
         indice = LibCall.torch.reduce(input, dim, keepdim)
         indice.dtype = torch.intDefault
+        indice.h = LibCall.h.argmaxr(input.h, dim)
         if out is not None:
             LibCall.torch.copyOut(tensor, out[0])
             LibCall.torch.copyOut(indice, out[1])
@@ -250,6 +255,7 @@ def max(input, dim=None, keepdim=False, out=None):
 def maximum(input, other, out=None):
     tensor = _bop(input, other)
     LibCall.torch.copyOut(tensor, out)
+    tensor.h = LibCall.h.maxt(input.h, other.h)
     return tensor
 
 
@@ -384,6 +390,7 @@ def flatten(input, start_dim=0, end_dim=-1):
     dtype = input.dtype
     tensor = LibCall.torch.flatten(input, start_dim, end_dim)
     tensor.dtype = dtype
+    tensor.h = LibCall.h.reshape(input.h, tensor.shape)
     return tensor
 
 
@@ -414,6 +421,7 @@ def sigmoid(input, out=None):
 
 def relu(input):
     result = LibCall.torch.identityShape(input)
+    result.h = LibCall.h.relu(input.h)
     return result
 
 

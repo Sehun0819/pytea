@@ -6,7 +6,7 @@
  *
  * Values for PyTea internal languages with Immutable.js
  */
-import { List, Map, Record } from 'immutable';
+import { List, Map, Record, Set } from 'immutable';
 
 import { Range } from 'pyright-internal/common/textRange';
 import { ParseNode } from 'pyright-internal/parser/parseNodes';
@@ -14,6 +14,7 @@ import { ParseNode } from 'pyright-internal/parser/parseNodes';
 import { ThStmt, TSFunDef, TSPass } from '../frontend/torchStatements';
 import { fetchAddr } from './backUtils';
 import { Context } from './context';
+import { HEType, HExpr } from './hExpression';
 import { ShEnv, ShHeap } from './sharpEnvironments';
 import { ExpBool, ExpNum, ExpShape, ExpString, SymExp } from './symExpressions';
 
@@ -28,6 +29,7 @@ export type ShValue =
     | SVNone
     | SVNotImpl
     | SVUndef
+    | SVTorchGraph
     | SVError;
 
 export type SVNumber = SVInt | SVFloat;
@@ -51,6 +53,7 @@ export const enum SVType {
     None,
     NotImpl,
     Undef,
+    TorchGraph,
     Error,
 }
 
@@ -115,6 +118,8 @@ export namespace ShValue {
                 return 'NotImpl';
             case SVType.Undef:
                 return 'Undef';
+            case SVType.TorchGraph:
+                return 'TorchGraph';
             case SVType.Error:
                 return 'Error';
         }
@@ -434,6 +439,55 @@ export class SVObject extends Record(svObjectProps) implements SVObjectProps {
         return this.keyValues.get(key);
     }
 
+    private getTensorPaths_(
+        seenPath: string,
+        name2path: Map<string, string>,
+        builtin_attr: Set<string>,
+        heap: ShHeap
+    ): Map<string, string> {
+        let name2path_ = name2path;
+        this.attrs.forEach((attrVal_, attrName) => {
+            if (!builtin_attr.has(attrName)) {
+                const attrVal = fetchAddr(attrVal_, heap);
+                if (
+                    attrName === 'h' &&
+                    attrVal?.type === SVType.TorchGraph &&
+                    attrVal.hexpr?.etype === HEType.VarTensor
+                ) {
+                    name2path_ = name2path_.set(attrVal.hexpr.tname, `${seenPath}`);
+                } else if (attrName === '_modules' && attrVal?.type === SVType.Object) {
+                    // nn.Sequential
+                    //attrVal.attrs.forEach(())
+                    //const prefix = seenPath.length === 0 ? '' : seenPath + '.';
+                } else if (attrVal?.type === SVType.Object) {
+                    const prefix = seenPath.length === 0 ? '' : seenPath + '.';
+                    name2path_ = attrVal.getTensorPaths_(`${prefix}${attrName}`, name2path_, builtin_attr, heap);
+                }
+            }
+        });
+        return name2path_;
+    }
+
+    getTensorPath(heap: ShHeap): Map<string, string> {
+        const builtin: Set<string> = Set([
+            '__new__',
+            '__init__',
+            '__name__',
+            '__call__',
+            '__mro__',
+            '$length',
+            'shape',
+            'dtype',
+            'data',
+            'in_features',
+            'out_features',
+            'training',
+        ]);
+
+        const name2path: Map<string, string> = Map();
+        return this.getTensorPaths_('', name2path, builtin, heap);
+    }
+
     toString(): string {
         const attrStr = `${ShValue.toStringStrMap(this.attrs)}`;
         const indStr = `${ShValue.toStringNumMap(this.indices)}`;
@@ -706,6 +760,39 @@ export class SVUndef extends Record(svUndefDefaults) implements SVUndefProps {
 
     toString(): string {
         return 'UNDEF';
+    }
+}
+
+interface SVTorchGraphProps extends ShValueBase {
+    readonly type: SVType.TorchGraph;
+    readonly hexpr: HExpr | undefined;
+}
+
+const svTensorDefaults: SVTorchGraphProps = {
+    type: SVType.TorchGraph,
+    hexpr: undefined,
+    source: undefined,
+};
+
+export class SVTorchGraph extends Record(svTensorDefaults) implements SVTorchGraphProps {
+    readonly type!: SVType.TorchGraph;
+
+    constructor(hexpr?: Partial<SVTorchGraphProps>) {
+        hexpr ? super(hexpr) : super();
+    }
+
+    static create(ctx: Context<unknown>, hexpr: HExpr, source: CodeSource | undefined): Context<SVTorchGraph> {
+        const [addr, heap] = ctx.heap.malloc(source);
+        const value: SVTorchGraph = new SVTorchGraph({
+            hexpr,
+            source,
+        });
+
+        return ctx.setHeap(heap.setVal(addr, value)).setRetVal(value);
+    }
+
+    toString(): string {
+        return this.hexpr === undefined ? 'undefined' : HExpr.toString(this.hexpr);
     }
 }
 

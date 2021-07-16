@@ -65,6 +65,10 @@ export interface PyteaOptions {
 
     // Port to Python Z3 server (default: 17851)
     z3Port: number;
+
+    // Variable name of the pytorch module instance/class whose computation graph to be translated to h.
+    outputTensorName: string | undefined;
+    netInstanceName: string | undefined;
 }
 
 export const defaultOptions: PyteaOptions = {
@@ -83,4 +87,6 @@ export const defaultOptions: PyteaOptions = {
     timeout: undefined,
     maxPath: undefined,
     boxDataLoader: true,
+    outputTensorName: undefined,
+    netInstanceName: undefined,
 };

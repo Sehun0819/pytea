@@ -36,7 +36,7 @@ class MaxPool2d(Module):
         self.ceil_mode = ceil_mode
 
     def forward(self, input):
-        return F.avg_pool2d(input, self.kernel_size, self.stride,
+        return F.max_pool2d(input, self.kernel_size, self.stride,
                             self.padding, self.ceil_mode)
 
 

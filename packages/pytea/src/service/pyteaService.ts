@@ -17,11 +17,13 @@ import { RandomGen } from 'src/backend/randomGen';
 import { getFileInfo } from 'pyright-internal/analyzer/analyzerNodeInfo';
 import { AnalyzerService } from 'pyright-internal/analyzer/service';
 import { ConsoleInterface, StandardConsole } from 'pyright-internal/common/console';
+import { combinePaths } from 'pyright-internal/common/pathUtils';
 import { convertOffsetToPosition } from 'pyright-internal/common/positionUtils';
 import { Range } from 'pyright-internal/common/textRange';
 import { ParseNodeType } from 'pyright-internal/parser/parseNodes';
 
 import { Context, ContextSet } from '../backend/context';
+import { HExpr } from '../backend/hExpression';
 import { CodeSource, ShContFlag, ShValue, SVAddr, SVObject, SVString, SVType } from '../backend/sharpValues';
 import { TorchBackend } from '../backend/torchBackend';
 import { IRWriter } from '../frontend/IRReaderWriter';
@@ -927,5 +929,78 @@ export class PyteaService {
             })
             .reverse()
             .join('\n');
+    }
+
+    exportHpgm<T>(result: ContextSet<T>, path: string): void {
+        const outputTensorName_ = this.options?.outputTensorName;
+        const netInstanceName_ = this.options?.netInstanceName;
+        if (outputTensorName_ === undefined) {
+            console.log(`Translate to H Error: target output tensor name is not given`);
+            return;
+        } else if (netInstanceName_ === undefined) {
+            console.log(`Translate to H Error: target network instance name is not given`);
+            return;
+        }
+
+        if (!(result.getList().size === 1)) {
+            console.log(`Translate to H Error: PyTorch program path split`);
+            return;
+        }
+        const ctx = result.getList().get(0);
+        if (ctx === undefined) {
+            console.log(`Translate to H Error: Path unavailable`);
+            return;
+        }
+
+        // TODO: currently assume that address 1 is main module object
+        //       do not hardcode.
+        const module = ctx.heap.getVal(1);
+        if (module?.type !== SVType.Object) {
+            console.log(`Translate to H Error: Target module unavailable`);
+            return;
+        }
+        const outputTensorAddr = module.attrs.get(outputTensorName_);
+        const netInstanceAddr = module.attrs.get(netInstanceName_);
+        if (outputTensorAddr === undefined) {
+            console.log(`Translate to H Error: Target output tensor name of '${outputTensorAddr}'unavailable`);
+            return;
+        } else if (netInstanceAddr === undefined) {
+            console.log(`Translate to H Error: Target network instance name of '${netInstanceAddr}'unavailable`);
+            return;
+        }
+        const outputTensor = fetchAddr(outputTensorAddr, ctx.heap);
+        const netInstance = fetchAddr(netInstanceAddr, ctx.heap);
+        if (outputTensor?.type !== SVType.Object) {
+            console.log(
+                `Translate to H Error: Target output tensor address '${outputTensorAddr.toString()}'unavailable`
+            );
+            return;
+        } else if (netInstance?.type !== SVType.Object) {
+            console.log(
+                `Translate to H Error: Target network instane address '${netInstanceAddr.toString()}'unavailable`
+            );
+            return;
+        }
+        const name2path = netInstance.getTensorPath(ctx.heap);
+        const hAddr = outputTensor.getAttr('h');
+        if (hAddr === undefined) {
+            console.log(`Translate to H Error: Target network graph unavailable`);
+            return;
+        }
+        const h = fetchAddr(hAddr, ctx.heap);
+        if (h === undefined || h.type !== SVType.TorchGraph) {
+            console.log(`Translate to H Error: Target network graph address ${hAddr.toString()}unavailable`);
+            return;
+        }
+        const hGraph = h.hexpr;
+        if (hGraph === undefined) {
+            console.log(`Translate to H Error: Target network graph unavailable`);
+            return;
+        }
+
+        console.log(`>>>>>>>\n${name2path}`);
+        HExpr.nameResolve(hGraph, name2path);
+        const hpgm = HExpr.toString(hGraph);
+        fs.writeFileSync(combinePaths(path, 'out.h'), hpgm);
     }
 }

@@ -926,7 +926,7 @@ export namespace ExpShape {
     export function toString(exp: ExpShape): string {
         switch (exp.opType) {
             case ShapeOpType.Const:
-                return `T[${exp.dims.map((dim) => SymExp.toString(dim)).join(',')}]`;
+                return `[${exp.dims.map((dim) => SymExp.toString(dim)).join(' ')}]`;
             case ShapeOpType.Symbol:
                 return `TSym[${exp.symbol.name}; ${SymExp.toString(exp.symbol.rank)}]`;
             case ShapeOpType.Set:

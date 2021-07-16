@@ -178,6 +178,7 @@ function runMain(args: CommandLineOptions) {
                             pyteaService!.printLog(result);
                             exportConstraintSet(result, resultPath);
                         }
+                        pyteaService.exportHpgm(result, process.cwd());
                     }
                 } catch (e) {
                     console.error(e);
