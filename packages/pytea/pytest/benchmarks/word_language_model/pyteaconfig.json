@@ -1,8 +1,0 @@
-{
-    "pythonCmdArgs": {
-        "epochs": 1,
-        "cuda": true
-    },
-    "logLevel": "result-only",
-    "entryPath": "./main.py"
-}

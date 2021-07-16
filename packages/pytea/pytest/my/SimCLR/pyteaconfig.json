@@ -1,6 +1,0 @@
-{
-    "entryPath": "resnet_train.py",
-    "logLevel": "reduced",
-    "netClass": "net",
-    "netInstance": "output"
-}

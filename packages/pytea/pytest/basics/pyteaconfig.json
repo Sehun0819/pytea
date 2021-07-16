@@ -1,8 +1,0 @@
-{
-    "pythonSubcommand": "train",
-    "pythonCmdArgs": { "batch-size": 32 },
-    "logLevel": "reduced",
-    "printIR": true,
-    "immediateConstraintCheck": true,
-    "variableSeed": { "AXX": null }
-}

@@ -128,3 +128,6 @@ packages/pytea/build
 
 bin/
 constraint.json
+
+# OS X metadata
+*.DS_Store

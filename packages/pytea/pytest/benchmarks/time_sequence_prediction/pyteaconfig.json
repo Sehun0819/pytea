@@ -1,7 +1,0 @@
-{
-    "pythonCmdArgs": {
-        "steps": 1
-    },
-    "logLevel": "result-only",
-    "entryPath": "./train.py"
-}

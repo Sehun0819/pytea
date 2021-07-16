@@ -23,7 +23,10 @@ import { combinePaths } from 'pyright-internal/common/pathUtils';
 import { defaultOptions } from './service/pyteaOptions';
 
 import { PyteaService } from './service/pyteaService';
-import { buildPyteaOption, exportConstraintSet } from './service/pyteaUtils';
+import {
+    buildPyteaOption,
+    // exportConstraintSet
+} from './service/pyteaUtils';
 
 const toolName = 'pytea';
 
@@ -126,7 +129,7 @@ function runMain(args: CommandLineOptions) {
     const output = new NullConsole();
     const realFileSystem = createFromRealFileSystem(output);
 
-    const runZ3 = args.z3;
+    // const runZ3 = args.z3;
     options.watchForSourceChanges = false;
 
     const pyrightService = new AnalyzerService('<default>', realFileSystem, output);

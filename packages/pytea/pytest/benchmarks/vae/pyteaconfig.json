@@ -1,8 +1,0 @@
-{
-    "pythonCmdArgs": {
-        "epochs": 1,
-        "seed": 1
-    },
-    "logLevel": "result-only",
-    "entryPath": "./main.py"
-}
