@@ -13,7 +13,7 @@ npm run install:all
 # build
 npm run build
 
-# running examples
+# running example: Generates H program "out.h".
 python torch2h.py examples/mnist/main.py
 ```
 
