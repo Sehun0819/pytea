@@ -1,8 +1,4 @@
 {
-    "pythonCmdArgs": {
-        "epochs": 1
-    },
-    "logLevel": "reduced",
     "entryPath": "./main.py",
     "netInstanceName": "model",
     "outputTensorName": "output"
