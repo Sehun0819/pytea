@@ -998,7 +998,6 @@ export class PyteaService {
             return;
         }
 
-        console.log(`>>>>>>>\n${name2path}`);
         HExpr.nameResolve(hGraph, name2path);
         const hpgm = HExpr.toString(hGraph);
         fs.writeFileSync(combinePaths(path, 'out.h'), hpgm);

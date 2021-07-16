@@ -171,13 +171,14 @@ function runMain(args: CommandLineOptions) {
                 try {
                     const result = await pyteaService.analyze();
                     if (pyteaService && result) {
-                        if (runZ3) {
+                        /* if (runZ3) {
                             const z3Result = await pyteaService.runZ3Py(result);
                             pyteaService.printLogWithZ3(result, z3Result);
                         } else {
                             pyteaService!.printLog(result);
                             exportConstraintSet(result, resultPath);
-                        }
+                        } */
+                        pyteaService!.printLog(result);
                         pyteaService.exportHpgm(result, process.cwd());
                     }
                 } catch (e) {

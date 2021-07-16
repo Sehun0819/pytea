@@ -23,7 +23,7 @@ class Net(nn.Module):
         x = F.relu(x)
         x = self.conv2(x)
         x = F.relu(x)
-        x = F.max_pool2d(x, 2)
+        x = F.avg_pool2d(x, 2) # x = F.max_pool2d(x, 2)
         x = self.dropout1(x)
         x = torch.flatten(x, 1)
         x = self.fc1(x)
@@ -134,3 +134,26 @@ def main():
 
 model = Net()
 output = model(torch.rand(10,1,28,28))
+
+
+# To get weight written in file, uncomment it and run "python main.py".
+"""
+import json
+
+def weights_to_list(state_dict):
+    state_dict_ = {}
+    for k, v in state_dict.items():
+        state_dict_[k] = v.tolist()
+    return state_dict_
+
+def extract_weights(net, file_path=None):
+    weights = net.state_dict()
+    json_string = json.dumps(weights_to_list(weights), sort_keys=True, indent=4)
+    if file_path == None:
+        print(json_string)
+    else:
+        with open(file_path, 'w') as file:
+            file.write(json_string)
+
+extract_weights(model, 'weights.json')
+"""

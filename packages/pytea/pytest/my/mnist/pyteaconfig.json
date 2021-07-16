@@ -4,6 +4,6 @@
     },
     "logLevel": "reduced",
     "entryPath": "./main.py",
-    "netClass": "model",
-    "netInstance": "output"
+    "netInstanceName": "model",
+    "outputTensorName": "output"
 }
